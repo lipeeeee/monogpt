@@ -1,5 +1,5 @@
 from transformer import *
-from torch import nn
+from torch import logit, nn
 
 class MONOGPT(nn.Module):
   def __init__(self, vocab_size: int, verbose:bool=False):
@@ -44,3 +44,32 @@ class MONOGPT(nn.Module):
         loss = nn.functional.cross_entropy(logits, targets)
 
     return logits, loss
+
+  def generate(self, context:list, temp:float=1.0):
+    """Provides softmax distribuition over the next token (1, VOCAB_SIZE)"""
+    if len(context) > self.CONTEXT_SIZE:
+      context = context[-self.CONTEXT_SIZE:] # keep only last CONTEXT_SIZE elems
+
+    context = torch.tensor(context, dtype=torch.long).unsqueeze(0) # unsqueeze does (CONTEXT) -> (1, CONTEXT)
+    context = context.to(next(self.parameters()).device) # moves to same device as self's params
+    logits, _ = self(context, targets=None)
+    logits = logits[:, -1, :] # (1, T, VOCAB_SIZE) -> (1, VOCAB_SIZE)
+    logits = logits / temp
+    
+    probs = nn.functional.softmax(logits, dim=-1)
+    next_token = torch.multinomial(probs, num_samples=1)
+    return next_token.item() # int token
+  
+  def generate_n(self, n:int, context:list, temp:float=1.0):
+    """Generates n new tokens"""
+    assert n > 0
+    generated:list[int] = []
+    curr_context = context.copy()
+
+    for _ in range(n):
+      new_tok = self.generate(context, temp)
+      generated.append(new_tok)
+
+      curr_context.append(new_tok)
+    
+    return generated
