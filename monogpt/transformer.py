@@ -45,4 +45,37 @@ class MultiAttentionHead(nn.Module):
     head_outputs = [head(x) for head in self.heads]
     out = torch.cat(head_outputs, dim=-1)
     return self.linear(out)
-    
+
+class FeedForward(nn.Module):
+  def __init__(self, embedding_dim:int):
+    super().__init__()
+
+    self.define(embedding_dim)
+
+  def define(self, embedding_dim):
+    self.l1 = nn.Linear(embedding_dim, embedding_dim * 4)
+    self.l2 = nn.Linear(embedding_dim * 4, embedding_dim)
+    self.dropout = nn.Dropout(0.2)
+
+  def forward(self, x):
+    out = nn.functional.relu(self.l1(x))
+    out = self.l2(out)
+    return self.dropout(out)
+
+class Block(nn.Module):
+  def __init__(self, h:int, embedding_dim:int, block_size:int):
+    super().__init__()
+
+    self.define(h, embedding_dim, block_size)
+
+  def define(self, h, embedding_dim, block_size):
+    self.mah = MultiAttentionHead(h, embedding_dim, block_size, bias=False)
+    self.fw = FeedForward(embedding_dim)
+    self.ln1 = nn.LayerNorm(embedding_dim)
+    self.ln2 = nn.LayerNorm(embedding_dim)
+
+  def forward(self, x):
+    out = x
+    out = out + self.mah(self.ln1(out))
+    out = out + self.fw(self.ln2(out))
+    return out
