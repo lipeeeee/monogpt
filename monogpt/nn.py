@@ -1,5 +1,5 @@
 from transformer import *
-from torch import logit, nn
+from torch import nn
 
 class MONOGPT(nn.Module):
   def __init__(self, vocab_size: int, verbose:bool=False):
@@ -73,3 +73,15 @@ class MONOGPT(nn.Module):
       curr_context.append(new_tok)
     
     return generated
+
+def train():
+  pass
+  
+if __name__ == "__main__":
+  from tokenizer import BytePairEncoding
+  from utils import load_dataset_from_dir, load_data
+  dataset = load_dataset_from_dir("data")
+  bpe = BytePairEncoding()
+  bpe.train(dataset, vocab_size=8192)
+  bpe.save("models/tinyshakespeare")
+  # bpe.load("models/tinyshakespeare.model")
