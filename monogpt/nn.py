@@ -3,8 +3,8 @@ import time
 import torch
 import datetime
 import numpy as np
-from transformer import *
 from torch import nn
+from monogpt.transformer import *
 
 class MONOGPT(nn.Module):
   def __init__(self, vocab_size: int, verbose:bool=False):
@@ -148,8 +148,8 @@ def train(dataset: str, tokenizer,
   if tokenized_dataset_path is not None: pre_computed_tokenized_ds_exists = os.path.exists(tokenized_dataset_path)
   if tokenized_dataset_path is None or not pre_computed_tokenized_ds_exists: # tokenize dataset
     if verbose: print(f">>>> Starting to encode dataset with tokenizer(size={tokenizer.get_vocab_size()})")
-    t0 = time.time()
     assert dataset is not None, "For some reason we reached this line WITHOUT a dataset:str and a tokenized_dataset_path"
+    t0 = time.time()
     tokenized_dataset = tokenizer.encode(dataset)
     if not isinstance(tokenized_dataset, list): tokenized_dataset = tokenized_dataset.ids # hf support
     dt = time.time() - t0
@@ -196,7 +196,8 @@ def train(dataset: str, tokenizer,
     optim.step()
 
   if verbose: print(f">>>> Finished training")
-  torch.save(m.state_dict(), save_to)
+  if save_to is not None:
+    torch.save(m.state_dict(), save_to)
   return m
   
 if __name__ == "__main__":
