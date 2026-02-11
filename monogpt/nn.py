@@ -138,7 +138,7 @@ def train(dataset: str, tokenizer,
           learning_rate: float = 3e-4,
           eval_interval: int = 500,
           percent_training: float = 0.9, # 90% for training
-          save_to: str = "models/monogpt_v1.pth", # weights save to path
+          save_to: str = "models/monogpt.pth", # weights save to path
           verbose: bool = True):
 
   device:str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -149,6 +149,7 @@ def train(dataset: str, tokenizer,
   if tokenized_dataset_path is None or not pre_computed_tokenized_ds_exists: # tokenize dataset
     if verbose: print(f">>>> Starting to encode dataset with tokenizer(size={tokenizer.get_vocab_size()})")
     t0 = time.time()
+    assert dataset is not None, "For some reason we reached this line WITHOUT a dataset:str and a tokenized_dataset_path"
     tokenized_dataset = tokenizer.encode(dataset)
     if not isinstance(tokenized_dataset, list): tokenized_dataset = tokenized_dataset.ids # hf support
     dt = time.time() - t0
