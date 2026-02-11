@@ -1,6 +1,7 @@
 import os
 import time
 import torch
+import datetime
 import numpy as np
 from transformer import *
 from torch import nn
@@ -137,6 +138,7 @@ def train(dataset: str, tokenizer,
           learning_rate: float = 3e-4,
           eval_interval: int = 500,
           percent_training: float = 0.9, # 90% for training
+          save_to: str = "models/monogpt_v1.pth", # weights save to path
           verbose: bool = True):
 
   device:str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -145,41 +147,45 @@ def train(dataset: str, tokenizer,
   # maybe there is a slightly better way to do loading/saving logic but not important
   if tokenized_dataset_path is not None: pre_computed_tokenized_ds_exists = os.path.exists(tokenized_dataset_path)
   if tokenized_dataset_path is None or not pre_computed_tokenized_ds_exists: # tokenize dataset
-    if verbose: print(f"Starting to encode dataset with tokenizer(size={tokenizer.get_vocab_size()})")
+    if verbose: print(f">>>> Starting to encode dataset with tokenizer(size={tokenizer.get_vocab_size()})")
     t0 = time.time()
-    tokenized_dataset = tokenizer.encode(dataset).ids
+    tokenized_dataset = tokenizer.encode(dataset)
+    if not isinstance(tokenized_dataset, list): tokenized_dataset = tokenized_dataset.ids # hf support
     dt = time.time() - t0
-    if verbose: print(f"Finished tokenizing dataset (took {dt:.2f} sec)")
+    if verbose: print(f">>>> Finished tokenizing dataset (took {dt:.2f} sec)")
     if tokenized_dataset_path: 
       ids_np = np.array(tokenized_dataset, dtype=np.uint16)
       ids_np.tofile(tokenized_dataset_path)
-      if verbose: print(f"Saved computed tokenized dataset to {tokenized_dataset_path}")
-    if verbose: print(f"Passing tokenized dataset(len={len(tokenized_dataset)}) to tensor")
+      if verbose: print(f">>>> Saved computed tokenized dataset to {tokenized_dataset_path}")
+    if verbose: print(f">>>> Passing tokenized dataset(len={len(tokenized_dataset)}) to tensor")
     data_tensor = torch.tensor(tokenized_dataset, dtype=torch.long)
   else:
     data_np = np.memmap(tokenized_dataset_path, dtype=np.uint16, mode='r')
     data_tensor = torch.from_numpy(data_np.astype(np.int64))
-    if verbose: print(f"Loaded {len(data_tensor)} tokens from precomputed dataset with np.memmap.")
+    if verbose: print(f">>>> Loaded {len(data_tensor)} tokens from precomputed dataset with np.memmap.")
 
-  if verbose: print(f"Dataset is on: {data_tensor.device}")
+  if verbose: print(f">>>> Dataset is on: {data_tensor.device}")
   n = int(percent_training * len(data_tensor))
   train_data = data_tensor[:n]
   val_data = data_tensor[n:]
-  if verbose: print(f"Data Tensor Shape: {data_tensor.shape}, using {percent_training*100}% for training")
+  if verbose: print(f">>>> Data Tensor Shape: {data_tensor.shape}, using {percent_training*100}% for training")
   
   # initialize model & optim
   m = MONOGPT(tokenizer.get_vocab_size(), verbose).to(device)
   optim = torch.optim.AdamW(m.parameters(), lr=learning_rate)
-  t0 = time.time() # first time mention because idk
 
   # training loop
   if verbose: print(f">>>> Starting training")
+  t0 = time.time()
+  eta_str:str = "Calculating..."
   for iter in range(max_iters):
-    if (iter % eval_interval == 0 or iter == max_iters -1):
+    if (iter % eval_interval == 0 or iter == max_iters - 1):
       losses = estimate_loss(m, train_data, val_data, 100, m.CONTEXT_SIZE, batch_size, device)
-      dt = time.time() - t0
-      if verbose: print(f"Step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f} (took {dt:.2f} sec)")
-      t0 = time.time()
+      elapsed = time.time() - t0
+      if iter > 0:
+        eta_seconds = (elapsed / iter) * (max_iters - iter) # time_per_step * steps_left
+        eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
+      print(f"Step {iter:5d}/{max_iters}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f} | ETA: {eta_str}")
 
     xb, xy = get_batch(train_data, m.CONTEXT_SIZE, batch_size, device)
     _, loss = m(xb, targets=xy)
@@ -189,6 +195,7 @@ def train(dataset: str, tokenizer,
     optim.step()
 
   if verbose: print(f">>>> Finished training")
+  torch.save(m.state_dict(), save_to)
   return m
   
 if __name__ == "__main__":
@@ -197,14 +204,14 @@ if __name__ == "__main__":
   from tokenizers import Tokenizer, models, trainers, pre_tokenizers
 
   # train hf tokenizer
-  tokenizer = Tokenizer(models.BPE())
-  tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
-  trainer = trainers.BpeTrainer(vocab_size=16000, initial_alphabet=[])
-  tokenizer.train(["data/tinyS_aa"], trainer)
-  tokenizer.save("models/tinyS_a.json")
+  # tokenizer = Tokenizer(models.BPE())
+  # tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+  # trainer = trainers.BpeTrainer(vocab_size=16000, initial_alphabet=[])
+  # tokenizer.train(["data/tinyS_aa"], trainer)
+  # tokenizer.save("models/tinyS_a.json")
 
   dataset = load_data("data/tinyS_aa")
-  # tokenizer = Tokenizer.from_file("models/tinyS_a.json")
+  tokenizer = Tokenizer.from_file("models/tinyS_a.json")
 
   # bpe = BytePairEncoding()
   # bpe.train(dataset, vocab_size=8192, verbose=True)
