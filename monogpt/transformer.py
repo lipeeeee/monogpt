@@ -3,16 +3,17 @@ import torch
 from torch import nn
 
 class AttentionHead(nn.Module):
-  def __init__(self, embedding_dim:int, head_size:int, block_size:int, bias:bool=False):
+  def __init__(self, embedding_dim:int, head_size:int, block_size:int, bias:bool=False, dropout:float=0.2):
     super().__init__()
     self.register_buffer("tril_mask", torch.tril(torch.ones(block_size, block_size)))
     self.head_size = head_size
-    self.define(embedding_dim, bias)
+    self.define(embedding_dim, bias, dropout)
 
-  def define(self, embedding_dim, bias):
+  def define(self, embedding_dim, bias, dropout):
     self.query = nn.Linear(embedding_dim, self.head_size, bias=bias)
     self.key = nn.Linear(embedding_dim, self.head_size, bias=bias)
     self.value = nn.Linear(embedding_dim, self.head_size, bias=bias)
+    self.attn_dropout = nn.Dropout(dropout)
 
   def forward(self, x:torch.Tensor):
     B, T, C = x.shape
@@ -23,8 +24,9 @@ class AttentionHead(nn.Module):
 
     wei = (q @ k.transpose(-2, -1)) * (self.head_size**-0.5)
     wei = wei.masked_fill(self.tril_mask[:T, :T] == 0, float("-inf"))
-    wei = nn.functional.softmax(wei, -1) @ v
-    return wei
+    wei = nn.functional.softmax(wei, -1)
+    wei = self.attn_dropout(wei)
+    return wei @ v
 
 class MultiAttentionHead(nn.Module):
   def __init__(self, h:int, embedding_dim:int, block_size:int, bias:bool=False):

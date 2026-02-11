@@ -1,5 +1,7 @@
+import os
 import time
 import torch
+import numpy as np
 from transformer import *
 from torch import nn
 
@@ -8,10 +10,18 @@ class MONOGPT(nn.Module):
     super().__init__()
     self.verbose = verbose
 
-    self.CONTEXT_SIZE:int = 1024
-    self.EMBEDDING_DIM:int = 512
+    self.CONTEXT_SIZE:int = 512
+    self.EMBEDDING_DIM:int = 384
     self.BLOCK_NUM:int = 6 # number of transformer blocks
-    self.HEADS_PER_BLOCK:int = 8 # number of attention heads in each block
+    self.HEADS_PER_BLOCK:int = 6 # number of attention heads in each block
+    self.DROPOUT: float = 0.2
+
+    # industry-like settings:
+    #self.CONTEXT_SIZE:int = 1024
+    #self.EMBEDDING_DIM:int = 512
+    #self.BLOCK_NUM:int = 6 # number of transformer blocks
+    #self.HEADS_PER_BLOCK:int = 8 # number of attention heads in each block
+
     self.VOCAB_SIZE:int = vocab_size # how large our vocab is(number of tokens)
 
     if verbose:
@@ -28,6 +38,7 @@ class MONOGPT(nn.Module):
   def define(self):
     self.token_embedding = nn.Embedding(self.VOCAB_SIZE, self.EMBEDDING_DIM)
     self.positional = nn.Embedding(self.CONTEXT_SIZE, self.EMBEDDING_DIM)
+    self.emb_dropout = nn.Dropout(self.DROPOUT)
     self.blocks = [Block(self.HEADS_PER_BLOCK, self.EMBEDDING_DIM, self.CONTEXT_SIZE) for _ in range(self.BLOCK_NUM)]
     self.blocks = nn.ModuleList(self.blocks)
     self.blocks = nn.Sequential(*self.blocks)
@@ -42,6 +53,7 @@ class MONOGPT(nn.Module):
     token_embed = self.token_embedding(x)
     pos_embed = self.positional(torch.arange(T, device=x.device))
     embed = token_embed + pos_embed # (B, T, C)
+    embed = self.emb_dropout(embed)
 
     # compute logits
     logits = self.blocks(embed)
@@ -118,8 +130,8 @@ def estimate_loss(model, train_data, val_data, eval_iters, block_size, batch_siz
   model.train()
   return out
 
-# takes in (dataset, tokenzier, vocab_size=8192, verbose=False)
 def train(dataset: str, tokenizer, 
+          tokenized_dataset_path: str|None = None, # Just a pre-computed path for tokenized dataset
           max_iters: int = 5000,
           batch_size: int = 32,
           learning_rate: float = 3e-4,
@@ -130,11 +142,25 @@ def train(dataset: str, tokenizer,
   device:str = "cuda" if torch.cuda.is_available() else "cpu"
   if verbose: print(f"Using device: {device}")
 
-  # encode dataset
-  if verbose: print(f"Starting to encode dataset with tokenizer(size={tokenizer.vocab_size})")
-  tokenized_dataset = tokenizer.encode(dataset)
-  if verbose: print(f"Passing tokenized dataset(len={len(tokenized_dataset)}) to tensor")
-  data_tensor = torch.tensor(tokenized_dataset, dtype=torch.long, device="cpu") # force cpu
+  # maybe there is a slightly better way to do loading/saving logic but not important
+  if tokenized_dataset_path is not None: pre_computed_tokenized_ds_exists = os.path.exists(tokenized_dataset_path)
+  if tokenized_dataset_path is None or not pre_computed_tokenized_ds_exists: # tokenize dataset
+    if verbose: print(f"Starting to encode dataset with tokenizer(size={tokenizer.get_vocab_size()})")
+    t0 = time.time()
+    tokenized_dataset = tokenizer.encode(dataset).ids
+    dt = time.time() - t0
+    if verbose: print(f"Finished tokenizing dataset (took {dt:.2f} sec)")
+    if tokenized_dataset_path: 
+      ids_np = np.array(tokenized_dataset, dtype=np.uint16)
+      ids_np.tofile(tokenized_dataset_path)
+      if verbose: print(f"Saved computed tokenized dataset to {tokenized_dataset_path}")
+    if verbose: print(f"Passing tokenized dataset(len={len(tokenized_dataset)}) to tensor")
+    data_tensor = torch.tensor(tokenized_dataset, dtype=torch.long)
+  else:
+    data_np = np.memmap(tokenized_dataset_path, dtype=np.uint16, mode='r')
+    data_tensor = torch.from_numpy(data_np.astype(np.int64))
+    if verbose: print(f"Loaded {len(data_tensor)} tokens from precomputed dataset with np.memmap.")
+
   if verbose: print(f"Dataset is on: {data_tensor.device}")
   n = int(percent_training * len(data_tensor))
   train_data = data_tensor[:n]
@@ -142,7 +168,7 @@ def train(dataset: str, tokenizer,
   if verbose: print(f"Data Tensor Shape: {data_tensor.shape}, using {percent_training*100}% for training")
   
   # initialize model & optim
-  m = MONOGPT(tokenizer.vocab_size, verbose).to(device)
+  m = MONOGPT(tokenizer.get_vocab_size(), verbose).to(device)
   optim = torch.optim.AdamW(m.parameters(), lr=learning_rate)
   t0 = time.time() # first time mention because idk
 
@@ -150,13 +176,13 @@ def train(dataset: str, tokenizer,
   if verbose: print(f">>>> Starting training")
   for iter in range(max_iters):
     if (iter % eval_interval == 0 or iter == max_iters -1):
-      losses = estimate_loss(m, train_data, val_data, 200, m.CONTEXT_SIZE, batch_size, device)
+      losses = estimate_loss(m, train_data, val_data, 100, m.CONTEXT_SIZE, batch_size, device)
       dt = time.time() - t0
       if verbose: print(f"Step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f} (took {dt:.2f} sec)")
       t0 = time.time()
 
     xb, xy = get_batch(train_data, m.CONTEXT_SIZE, batch_size, device)
-    logits, loss = m(xb, targets=xy)
+    _, loss = m(xb, targets=xy)
 
     optim.zero_grad(set_to_none=True)
     loss.backward()
@@ -166,13 +192,23 @@ def train(dataset: str, tokenizer,
   return m
   
 if __name__ == "__main__":
-  from utils import load_dataset_from_dir
+  from utils import load_dataset_from_dir, load_data
   from tokenizer import BytePairEncoding
-  dataset = load_dataset_from_dir("data")
-  bpe = BytePairEncoding()
+  from tokenizers import Tokenizer, models, trainers, pre_tokenizers
 
-  # bpe.train(dataset, vocab_size=8192)
-  # bpe.save("models/tinyshakespeare")
-  bpe.load("models/tinyshakespeare.model")
+  # train hf tokenizer
+  tokenizer = Tokenizer(models.BPE())
+  tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+  trainer = trainers.BpeTrainer(vocab_size=16000, initial_alphabet=[])
+  tokenizer.train(["data/tinyS_aa"], trainer)
+  tokenizer.save("models/tinyS_a.json")
 
-  m = train(dataset, bpe, batch_size=16)
+  dataset = load_data("data/tinyS_aa")
+  # tokenizer = Tokenizer.from_file("models/tinyS_a.json")
+
+  # bpe = BytePairEncoding()
+  # bpe.train(dataset, vocab_size=8192, verbose=True)
+  # bpe.save("models/tinystories")
+  # bpe.load("models/tinyshakespeare.model")
+  # "models/tokenized_dataset.bin"
+  m = train(dataset, tokenizer, batch_size=32, tokenized_dataset_path="models/tiny_tokenized.bin")
