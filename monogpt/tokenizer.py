@@ -131,6 +131,10 @@ class Tokenizer:
     self.special_tokens = special_tokens
     self.vocab = self.build_vocab()
 
+  @property
+  def vocab_size(self):
+    return len(self.vocab)
+
 # https://en.wikipedia.org/wiki/Byte-pair_encoding
 class BytePairEncoding(Tokenizer):
   def __init__(self):
