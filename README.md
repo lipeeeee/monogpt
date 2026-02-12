@@ -46,3 +46,26 @@ MONOGPT Initialized with:
         HEADS_PER_BLOCK=6
         TOTAL_TRANSFORMER_HEADS=36
 ```
+
+---
+### Technical Neural Net info
+(Most are the same that was used on [Attention Is All You Need](https://arxiv.org/pdf/1706.03762) whitepaper)
+- Positional Embeddings: Learnable absolute positions
+- Attention: Causal Self-Attention (Masked trigonometry)
+- Activation: GELU (Gaussian Error Linear Unit)
+- Optimization: AdamW with Weight Decay
+- Regularization: Dropout & LayerNorm
+
+---
+### Full Instalation and Usage Instructions
+```bash
+# 1. Install dependencies
+pip install torch numpy
+pip install tokenizers # if you want faster tokenization; else it will automatically use monogpts implementation
+
+# 2. Add your text files to /data
+cp my_book.txt ./data/
+
+# 3. Run the pipeline (Train -> Chat)
+python wrapper.py
+```
