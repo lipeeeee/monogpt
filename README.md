@@ -17,7 +17,7 @@ This was heavily inspired and based on the [Attention Is All You Need](https://a
 - It can reach **GPT2 level** if trained for long enough with the right data
 
 It is a lightweight Transformer implementation for GPT training and inference in PyTorch. 
-Designed to: given raw text -> output a generative model. It handles the entire pipeline from raw data ingestion to generative AI with an inference script.
+Designed to be a drop-in solution: given raw text -> output a generative model. It handles the entire pipeline from raw data ingestion to generative AI with an inference script.
 
 ---
 ### Using monogpt to create models
