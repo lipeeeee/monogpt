@@ -17,3 +17,32 @@ This was heavily inspired and based on the [Attention Is All You Need](https://a
 
 It is a lightweight Transformer implementation for GPT training and inference in PyTorch. 
 Designed to: given raw text -> output a generative model. It handles the entire pipeline from raw data ingestion to generative AI with an inference script.
+
+---
+### Using monogpt to create models
+Simply create **"data/"** folder, put data that you want the model to learn from and just run **wrapper.py**!
+```bash
+ubuntu@ubuntu:~$ python3 wrapper.py
+
+>>>> Loading entire dataset to RAM...
+Loaded 269352791 characters from 2 files.
+>>>> Loaded 269352791 characters.
+>>>> Using Hugging faces tokenizer! (i love rust implementations)
+>>>> Found and loaded tokenizers weights on ./build/wrapper_w_tokenizer.json.
+>>>> No existing model found at ./build/monogpt_v1.pth.
+>>>> Starting fresh training run...
+Using device: cuda
+>>>> Starting to encode dataset with tokenizer(size=16000)
+>>>> Finished tokenizing dataset (took 402.57 sec)
+>>>> Saved computed tokenized dataset to ./build/tokenized_dataset.bin
+>>>> Passing tokenized dataset(len=64673413) to tensor
+>>>> Dataset is on: cpu
+>>>> Data Tensor Shape: torch.Size([64673413]), using 90.0% for training
+MONOGPT Initialized with:
+        CONTEXT_SIZE=512
+        VOCAB_SIZE=16000
+        EMBEDDING_DIM=384
+        BLOCK_NUM=6
+        HEADS_PER_BLOCK=6
+        TOTAL_TRANSFORMER_HEADS=36
+```
