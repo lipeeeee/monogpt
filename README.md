@@ -87,10 +87,11 @@ class MONOGPT(nn.Module):
 ```bash
 # 1. Install dependencies
 pip install torch numpy
-pip install tokenizers # if you want faster tokenization; else it will automatically use monogpts implementation
+pip install tokenizers # if you want faster tokenization;
+                       # else it will automatically use monogpts slower implementation
 
 # 2. Add your text files to /data
-cp my_book.txt ./data/
+cp my_book.txt ./data/ # more than 100Mb of data is advised for learning!
 
 # 3. Run the pipeline (Train -> Chat)
 python wrapper.py
