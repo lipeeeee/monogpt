@@ -1,6 +1,5 @@
-# monogpt
-
-
-# data
-https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
-https://huggingface.co/datasets/roneneldan/TinyStories/tree/main
+<div align="center">
+  <h1>monogpt</h1>
+  
+  **Train** your own language model with your data!
+</div>
