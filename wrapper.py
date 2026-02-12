@@ -38,6 +38,8 @@ if device == "cpu":
 # See what data we have
 if not os.path.exists(data_folder):
   raise FileNotFoundError(f"Data folder not found. Create a folder on \"{data_folder}\" and add .txt files for training.")
+if not os.path.exists(build_folder):
+  os.mkdir(build_folder)
 
 if (not os.path.exists(nn_weights_path)) or (not os.path.exists(tokenized_dataset_path)):
   print(f">>>> Loading entire dataset to RAM...")
