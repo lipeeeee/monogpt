@@ -14,7 +14,7 @@ This was heavily inspired and based on the [Attention Is All You Need](https://a
 - Custom **BytePairEncoding Tokenizer** training pipeline
 - Hackable **Attention** implementation with stackable blocks
 - Inference script(**wrapper.py**) made to be extremely accessible
-- It can reach **GPT2 level** if trained for long enough with the right data.
+- It can reach **GPT2 level** if trained for long enough with the right data
 
 It is a lightweight Transformer implementation for GPT training and inference in PyTorch. 
 Designed to: given raw text -> output a generative model. It handles the entire pipeline from raw data ingestion to generative AI with an inference script.
@@ -82,6 +82,8 @@ class MONOGPT(nn.Module):
 
 ---
 ### Full Instalation and Usage Instructions
+<h6>!you should install a cuda compiled pytorch for compute speed!</h6>
+
 ```bash
 # 1. Install dependencies
 pip install torch numpy
