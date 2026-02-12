@@ -14,6 +14,7 @@ This was heavily inspired and based on the [Attention Is All You Need](https://a
 - Custom **BytePairEncoding Tokenizer** training pipeline
 - Hackable **Attention** implementation with stackable blocks
 - Inference script(**wrapper.py**) made to be extremely accessible
+- It can reach **GPT2 level** if trained for long enough with the right data.
 
 It is a lightweight Transformer implementation for GPT training and inference in PyTorch. 
 Designed to: given raw text -> output a generative model. It handles the entire pipeline from raw data ingestion to generative AI with an inference script.
@@ -55,6 +56,29 @@ MONOGPT Initialized with:
 - Activation: GELU (Gaussian Error Linear Unit)
 - Optimization: AdamW with Weight Decay
 - Regularization: Dropout & LayerNorm
+
+---
+### Transformer Hyperparams and Training
+- The current version of monogpt is **perfect** for small-medium datasets. Meaning the neural net is not complex enough that it will start overfitting and taking long to train.
+- But it still has some complexity/is deep. The current network params take 2GB-10GB of VRAM. Mainly because of **AdamW** optimizer and **PyTorch** just being greedy with RAM.
+
+It's very hackable so:
+- **lower** the params for: Faster training(**lower VRAM aswell**) and support lower complexity datasets (won't learn very niche information on data).
+- **increase** the params for: More complex datasets and potential to learn more connections between words, resulting in industry-standard and even GPT2 level results.
+
+```python
+# nn.py
+class MONOGPT(nn.Module):
+  def __init__(self, vocab_size: int, verbose:bool=False):
+    super().__init__()
+    self.verbose = verbose
+
+    self.CONTEXT_SIZE:int = 512 # how much the network will see before predicting next token
+    self.EMBEDDING_DIM:int = 384 # how much dimension will each token be represented in
+    self.BLOCK_NUM:int = 6 # number of transformer blocks
+    self.HEADS_PER_BLOCK:int = 6 # number of attention heads in each block
+    self.DROPOUT: float = 0.2 # just normal feedforward block dropout(defined in paper)
+````
 
 ---
 ### Full Instalation and Usage Instructions
