@@ -2,9 +2,9 @@
   Wrapper around monogpt where you can train your own language model easily
   pip install tokenizers # is recommended since they use rust impl for BPE (monogpt's python impl is slower)
 
-  **The current setup in nn.py uses 8GB-10GB VRAM, if you don't have the required VRAM consider lowering nn.py's network architecture**
+  **The current setup in nn.py uses 4GB-10GB VRAM(depending on dataset), if you don't have the required VRAM consider lowering nn.py's network architecture**
  
-  To run: python3 wrapper.py [args]
+  To run: python3 wrapper.py
 """
 
 import os
@@ -88,7 +88,7 @@ assert (dataset is not None) or (os.path.exists(tokenizer_weigths_path)), f"Some
 
 # if weights exist in disk we dont bother training
 if os.path.exists(nn_weights_path):
-    print(f"\n>>>> Found pre-trained model at {nn_weights_path}!")
+    print(f">>>> Found pre-trained model at {nn_weights_path}!")
     print(">>>> Loading weights instead of training...")
     
     model = MONOGPT(tokenizer.get_vocab_size(), verbose=True)
@@ -136,7 +136,7 @@ model.eval()
 while True:
     user_input = input("You: ")
     if user_input.lower() in ['quit', 'exit']:
-        break
+      break
 
     full_prompt = sys_prompt 
     for turn in history[-MAX_HISTORY:]:
@@ -148,7 +148,7 @@ while True:
 
     x = torch.tensor(encoded, dtype=torch.long, device=device).unsqueeze(0)
     with torch.no_grad():
-        output_ids = model.generate(x, max_new_tokens=100)[0].tolist()
+      output_ids = model.generate_n(n=100, context=x.tolist()[0], temp=0.7)
     
     decoded_text = tokenizer.decode(output_ids)
     response = decoded_text[len(full_prompt):] 
@@ -156,5 +156,6 @@ while True:
       response = response.split("User:")[0]
     response = response.strip()
 
-    print(f"XDD: {decoded_text}\n")
-    history.append({'user': user_input, 'bot': response})
+    clean_text = decoded_text.replace("Ġ", " ").replace("Ċ", "\n")
+    print(f"MonoGPT: {clean_text}\n")
+    history.append({'user': user_input, 'bot': clean_text})

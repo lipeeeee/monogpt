@@ -91,7 +91,7 @@ class MONOGPT(nn.Module):
     curr_context = context.copy()
 
     for _ in range(n):
-      new_tok = self.generate(context, temp)
+      new_tok = self.generate(curr_context, temp)
       generated.append(new_tok)
 
       curr_context.append(new_tok)
@@ -198,6 +198,7 @@ def train(dataset: str, tokenizer,
   if verbose: print(f">>>> Finished training")
   if save_to is not None:
     torch.save(m.state_dict(), save_to)
+    if verbose: print(f">>>> Saved model to \"{save_to}\"")
   return m
   
 if __name__ == "__main__":
