@@ -126,11 +126,6 @@ print("CHAT MODE")
 print("="*40)
 print("Type 'quit' to exit.\n")
 
-# prompt engineering
-sys_prompt = (
-  "The following is a conversation between a User and a helpful Assistant. "
-  "The Assistant is polite, concise, and smart.\n\n"
-)
 history = [] 
 MAX_HISTORY = 3 # Keep last 3 exchanges to save context window
 
@@ -140,10 +135,10 @@ while True:
     if user_input.lower() in ['quit', 'exit']:
       break
 
-    full_prompt = sys_prompt 
+    full_prompt = ""
     for turn in history[-MAX_HISTORY:]:
-      full_prompt += f"User: {turn['user']}\nAssistant: {turn['bot']}\n"
-    full_prompt += f"User: {user_input}\nAssistant:"
+      full_prompt += f"{turn['user']} {turn['bot']}\n"
+    full_prompt += f"{user_input}"
     
     encoded = tokenizer.encode(full_prompt)
     if not isinstance(encoded, list): encoded = encoded.ids # hf support
@@ -158,6 +153,6 @@ while True:
       response = response.split("User:")[0]
     response = response.strip()
 
-    clean_text = decoded_text.replace("Ġ", " ").replace("Ċ", "\n")
+    clean_text = decoded_text.replace("Ġ", "").replace("Ċ", "\n")
     print(f"MonoGPT: {clean_text}\n")
     history.append({'user': user_input, 'bot': clean_text})
